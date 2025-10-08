@@ -7,6 +7,12 @@ function App() {
     const [input, setInput] = useState('')
     const [loading, setLoading] = useState(false)
     const messagesEndRef = useRef(null)
+    const [sessionToken, setSessionToken] = useState(sessionStorage.getItem('session_token') || null)
+    const [email, setEmail] = useState('')
+    const [otp, setOtp] = useState('')
+    const [otpSent, setOtpSent] = useState(false)
+    const [authLoading, setAuthLoading] = useState(false)
+
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -55,86 +61,187 @@ function App() {
         console.log("Attaching files");
     }
 
-    return (
-        <div className="chat-container">
-            <img src="../public/Seek19.png" alt="Logo" className="logo" width={"15%"} height={"auto"} draggable={false} />
-            <div className="chat-wrapper">
+    const checkEmailAndSendOtp = async () => {
+        if (!email.trim()) return
+        setAuthLoading(true)
+        try {
+            const res = await fetch('https://russie.app.n8n.cloud/webhook-test/261d0fb7-1815-4653-890e-9bd672d0a184', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            })
+            const data = await res.json()
+            if (data.success) {
+                setOtpSent(true) // move to OTP input
+            } else {
+                alert(data.message || 'Email not registered')
+            }
+        } catch (err) {
+            alert('Error sending OTP')
+        } finally {
+            setAuthLoading(false)
+        }
+    }
 
-                {/* Header */}
-                <div className="chat-header">
-                    {/*<img src="../public/Seek19%20Logo.png" alt="Logo" className="logo"/>*/}
-                    <div className="header-content">
-                        <Bot size={24} className="header-icon" />
-                        <h1>Seeker</h1>
-                    </div>
-                </div>
+    // Verify OTP
+    const verifyOtp = async () => {
+        if (!otp.trim()) return
+        setAuthLoading(true)
+        try {
+            const res = await fetch('https://your-n8n-instance/webhook/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, otp })
+            })
+            const data = await res.json()
+            if (data.success) {
+                setSessionToken(data.token)
+                sessionStorage.setItem('session_token', data.token)
+            } else {
+                alert(data.message || 'Invalid OTP')
+            }
+        } catch (err) {
+            alert('Error verifying OTP')
+        } finally {
+            setAuthLoading(false)
+        }
+    }
 
-                {/* Messages */}
-                <div className="chat-messages">
-                    {messages.length === 0 ? (
-                        <div className="empty-state">
-                            <Bot size={48} className="empty-icon" />
-                            <p>Start a conversation</p>
-                        </div>
-                    ) : (
-                        <>
-                            {messages.map(msg => (
-                                <div
-                                    key={msg.id}
-                                    className={`message-row ${msg.sender}`}
-                                >
-                                    <div className={`message ${msg.sender}`}>
-                                        <p>{msg.text}</p>
-                                    </div>
-                                </div>
-                            ))}
-                            {loading && (
-                                <div className="message-row bot">
-                                    <div className="message bot loading">
-                                        <div className="typing-indicator">
-                                            <span></span>
-                                            <span></span>
-                                            <span></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={messagesEndRef} />
-                        </>
-                    )}
-                </div>
+    const logout = () => {
+        sessionStorage.removeItem('session_token')
+        setSessionToken(null)
+        setOtpSent(false)
+        setEmail('')
+        setOtp('')
+    }
 
-                {/* Input */}
-                <div className="chat-input-section">
-                    <div className="input-wrapper">
+    if (!sessionToken) {
+        return (
+            <div className="login-container">
+                <h2>Seeker Login</h2>
+                {!otpSent ? (
+                    <>
                         <input
-                            type="text"
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && handleSend()}
-                            placeholder="Type a message..."
-                            disabled={loading}
-                            className="input-field"
+                            type="email"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            placeholder="Enter your email"
+                            disabled={authLoading}
                         />
                         <button
-                            onClick={handleAttach}
-
-                            className="send-button"
+                            onClick={checkEmailAndSendOtp}
+                            disabled={authLoading || !email.trim()}
                         >
-                            <Paperclip size={20} />
+                            {authLoading ? 'Checking...' : 'Next'}
                         </button>
+                    </>
+                ) : (
+                    <>
+                        <input
+                            type="text"
+                            value={otp}
+                            onChange={e => setOtp(e.target.value)}
+                            placeholder="Enter OTP"
+                            disabled={authLoading}
+                        />
                         <button
-                            onClick={handleSend}
-                            disabled={loading || !input.trim()}
-                            className="send-button"
+                            onClick={verifyOtp}
+                            disabled={authLoading || !otp.trim()}
                         >
-                            <Send size={20} />
+                            {authLoading ? 'Verifying...' : 'Verify OTP'}
                         </button>
+                        <button onClick={() => setOtpSent(false)}>Change Email</button>
+                    </>
+                )}
+            </div>
+        )
+    }
+    else {
+        return (
+            <>
+            <button className={'logout-btn'} onClick={logout}>Logout</button>
+            <div className="chat-container">
+                <img src="../public/Seek19.png" alt="Logo" className="logo" width={"15%"} height={"auto"}
+                     draggable={false}/>
+                <div className="chat-wrapper">
+
+                    {/* Header */}
+                    <div className="chat-header">
+                        {/*<img src="../public/Seek19%20Logo.png" alt="Logo" className="logo"/>*/}
+                        <div className="header-content">
+                            <Bot size={24} className="header-icon"/>
+                            <h1>Seeker</h1>
+                        </div>
+                    </div>
+
+                    {/* Messages */}
+                    <div className="chat-messages">
+                        {messages.length === 0 ? (
+                            <div className="empty-state">
+                                <Bot size={48} className="empty-icon"/>
+                                <p>Start a conversation</p>
+                            </div>
+                        ) : (
+                            <>
+                                {messages.map(msg => (
+                                    <div
+                                        key={msg.id}
+                                        className={`message-row ${msg.sender}`}
+                                    >
+                                        <div className={`message ${msg.sender}`}>
+                                            <p>{msg.text}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {loading && (
+                                    <div className="message-row bot">
+                                        <div className="message bot loading">
+                                            <div className="typing-indicator">
+                                                <span></span>
+                                                <span></span>
+                                                <span></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div ref={messagesEndRef}/>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Input */}
+                    <div className="chat-input-section">
+                        <div className="input-wrapper">
+                            <input
+                                type="text"
+                                value={input}
+                                onChange={e => setInput(e.target.value)}
+                                onKeyPress={e => e.key === 'Enter' && handleSend()}
+                                placeholder="Type a message..."
+                                disabled={loading}
+                                className="input-field"
+                            />
+                            <button
+                                onClick={handleAttach}
+
+                                className="send-button"
+                            >
+                                <Paperclip size={20}/>
+                            </button>
+                            <button
+                                onClick={handleSend}
+                                disabled={loading || !input.trim()}
+                                className="send-button"
+                            >
+                                <Send size={20}/>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    )
+            </>
+        )
+    }
 }
 
 export default App
