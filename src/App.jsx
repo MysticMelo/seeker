@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import {Send, MessageCircle, Bot, Paperclip} from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 
 function App() {
     const [messages, setMessages] = useState([])
@@ -32,10 +33,10 @@ function App() {
         setLoading(true)
 
         try {
-            const response = await fetch('https://russie.app.n8n.cloud/webhook/c54e604b-e5a0-43c3-85c2-bfc011a3cf93', {
+            const response = await fetch('https://russie.app.n8n.cloud/webhook/e0e19d7a-c571-4cbd-928e-35875bc0a39d', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: input })
+                body: JSON.stringify({ message: input, email : sessionStorage.getItem('session_email')})
             })
 
             const data = await response.json()
@@ -65,7 +66,7 @@ function App() {
         if (!email.trim()) return
         setAuthLoading(true)
         try {
-            const res = await fetch('https://russie.app.n8n.cloud/webhook-test/261d0fb7-1815-4653-890e-9bd672d0a184', {
+            const res = await fetch('https://russie.app.n8n.cloud/webhook/261d0fb7-1815-4653-890e-9bd672d0a184', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -88,7 +89,7 @@ function App() {
         if (!otp.trim()) return
         setAuthLoading(true)
         try {
-            const res = await fetch('https://your-n8n-instance/webhook/verify-otp', {
+            const res = await fetch('https://russie.app.n8n.cloud/webhook/2736337a-44c8-4c00-8c1f-15a1011003d2', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp })
@@ -96,7 +97,9 @@ function App() {
             const data = await res.json()
             if (data.success) {
                 setSessionToken(data.token)
+                console.log("email:", data.email)
                 sessionStorage.setItem('session_token', data.token)
+                sessionStorage.setItem('session_email', data.email)
             } else {
                 alert(data.message || 'Invalid OTP')
             }
@@ -117,6 +120,7 @@ function App() {
 
     if (!sessionToken) {
         return (
+            <div className={'login-screen'}>
             <div className="login-container">
                 <h2>Seeker Login</h2>
                 {!otpSent ? (
@@ -125,9 +129,11 @@ function App() {
                             type="email"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
+                            onKeyPress={e => e.key === 'Enter' && checkEmailAndSendOtp()}
                             placeholder="Enter your email"
                             disabled={authLoading}
                         />
+
                         <button
                             onClick={checkEmailAndSendOtp}
                             disabled={authLoading || !email.trim()}
@@ -141,6 +147,7 @@ function App() {
                             type="text"
                             value={otp}
                             onChange={e => setOtp(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && verifyOtp()}
                             placeholder="Enter OTP"
                             disabled={authLoading}
                         />
@@ -154,12 +161,14 @@ function App() {
                     </>
                 )}
             </div>
+            </div>
+
         )
     }
     else {
         return (
             <>
-            <button className={'logout-btn'} onClick={logout}>Logout</button>
+
             <div className="chat-container">
                 <img src="../public/Seek19.png" alt="Logo" className="logo" width={"15%"} height={"auto"}
                      draggable={false}/>
@@ -172,6 +181,7 @@ function App() {
                             <Bot size={24} className="header-icon"/>
                             <h1>Seeker</h1>
                         </div>
+                        <button className={'logout-btn'} onClick={logout}>Logout</button>
                     </div>
 
                     {/* Messages */}
@@ -189,7 +199,7 @@ function App() {
                                         className={`message-row ${msg.sender}`}
                                     >
                                         <div className={`message ${msg.sender}`}>
-                                            <p>{msg.text}</p>
+                                            <ReactMarkdown>{msg.text}</ReactMarkdown>
                                         </div>
                                     </div>
                                 ))}
@@ -221,13 +231,13 @@ function App() {
                                 disabled={loading}
                                 className="input-field"
                             />
-                            <button
-                                onClick={handleAttach}
+                            {/*<button*/}
+                            {/*    onClick={handleAttach}*/}
 
-                                className="send-button"
-                            >
-                                <Paperclip size={20}/>
-                            </button>
+                            {/*    className="send-button"*/}
+                            {/*>*/}
+                            {/*    <Paperclip size={20}/>*/}
+                            {/*</button>*/}
                             <button
                                 onClick={handleSend}
                                 disabled={loading || !input.trim()}

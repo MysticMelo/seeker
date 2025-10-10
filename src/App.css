@@ -12,6 +12,56 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+
+
+.login-screen {
+    display: flex;
+    gap: 7px;
+    flex-direction: column;
+    justify-content: center;
+    align-content: center;
+    align-items: center;
+    margin: auto;
+    height: 100vh;
+    background: linear-gradient(135deg, #020e1c 50%, #133337 100%);
+}
+.login-container {
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
+    justify-content: center;
+    align-content: center;
+    background-color: white;
+    padding: 20px;
+    width: 100%;
+    max-width: 600px;
+    border-radius: 10px;
+
+}
+.login-container input[type="email"], input[type="text"] {
+    padding: 10px;
+    border: none;
+    border-bottom: 2px solid #ccc;     /* ✅ Underline */
+    outline: none;
+    background: transparent;
+    width: 100%;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+
+
+.login-container button {
+    background-color: #020e1c;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+}
+.login-container button:hover {
+    background-color: #133337;
+    cursor: pointer;
+}
+
 .chat-container {
     display: flex;
     flex-direction: column;
@@ -37,10 +87,25 @@ body {
 
 /* Header */
 .chat-header {
+    display: flex;
+    justify-content: space-between;
     background: linear-gradient(135deg, #020e1c 0%, #020e1c 100%);
     color: white;
     padding: 20px 24px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.logout-btn {
+    padding-left: 12px;
+    padding-right: 12px;
+    background-color: #00b5a4;
+    border-radius: 5px;
+    color: black;
+    border: none;
+}
+.logout-btn:hover{
+    background-color: #133337;
+    cursor: pointer;
+    color: white;
 }
 
 .header-content {
@@ -151,8 +216,18 @@ body {
 .message.bot {
     background: white;
     color: #333;
-    border: 1px solid #e0e0e0;
     border-bottom-left-radius: 4px;
+
+}
+
+.message.bot ul,
+.message.bot ol {
+    padding-left: 20px;   /* adds space between bullet and left edge */
+    margin: 8px 0;        /* optional spacing above/below list */
+}
+
+.message.bot li {
+    margin-bottom: 4px;   /* optional spacing between list items */
 }
 
 .message p {
