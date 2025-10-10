@@ -294,6 +294,7 @@ body {
     border-radius: 8px;
     font-size: 14px;
     outline: none;
+    color: black;
     transition: all 0.2s ease;
 }
 
