@@ -36,8 +36,12 @@ body {
     width: 100%;
     max-width: 600px;
     border-radius: 10px;
-
 }
+
+.login-container h2 {
+    color: #213547;
+}
+
 .login-container input[type="email"], input[type="text"] {
     padding: 10px;
     border: none;
