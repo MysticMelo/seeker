@@ -170,7 +170,7 @@ function App() {
             <>
 
             <div className="chat-container">
-                <img src="../public/Seek19.png" alt="Logo" className="logo" width={"15%"} height={"auto"}
+                <img src="https://raw.githubusercontent.com/MysticMelo/seeker/refs/heads/master/public/Seek19.png" alt="Logo" className="logo" width={"15%"} height={"auto"}
                      draggable={false}/>
                 <div className="chat-wrapper">
 
