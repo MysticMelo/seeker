@@ -116,6 +116,7 @@ function App() {
         setOtpSent(false)
         setEmail('')
         setOtp('')
+        setMessages(([]))
     }
 
     if (!sessionToken) {
