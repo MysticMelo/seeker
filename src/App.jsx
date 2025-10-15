@@ -36,7 +36,7 @@ function App() {
             const response = await fetch('https://russie.app.n8n.cloud/webhook/e0e19d7a-c571-4cbd-928e-35875bc0a39d', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: input, email : sessionStorage.getItem('session_email')})
+                body: JSON.stringify({ message: input, email : sessionStorage.getItem('session_email')}).toLowerCase()
             })
 
             const data = await response.json()
@@ -69,7 +69,7 @@ function App() {
             const res = await fetch('https://russie.app.n8n.cloud/webhook/261d0fb7-1815-4653-890e-9bd672d0a184', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email }).toLowerCase()
             })
             const data = await res.json()
             if (data.success) {
@@ -97,9 +97,9 @@ function App() {
             const data = await res.json()
             if (data.success) {
                 setSessionToken(data.token)
-                console.log("email:", data.email)
+
                 sessionStorage.setItem('session_token', data.token)
-                sessionStorage.setItem('session_email', data.email)
+                sessionStorage.setItem('session_email', data.email.toLowerCase())
             } else {
                 alert(data.message || 'Invalid OTP')
             }
