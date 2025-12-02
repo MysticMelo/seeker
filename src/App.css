@@ -344,6 +344,49 @@ body {
     opacity: 0.6;
 }
 
+.message.bot table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.message.bot thead th {
+    background: #f2f4f7;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.message.bot tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.message.bot tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Alternating row shading */
+.message.bot tbody tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+/* Numeric alignment */
+.message.bot td[style*="text-align: right"],
+.message.bot th[style*="text-align: right"] {
+    text-align: right;
+}
+
+/* Optional hover effect */
+.message.bot tbody tr:hover {
+    background: #f5f7fa;
+}
+
 /* Responsive */
 
 @media (max-width: 1000px) {

@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import {Send, MessageCircle, Bot, Paperclip} from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from "remark-gfm"
+import rehypeRaw from "rehype-raw"
+import rehypeSanitize from "rehype-sanitize"
 
 function App() {
     const [messages, setMessages] = useState([])
@@ -118,6 +121,9 @@ function App() {
         setOtp('')
         setMessages(([]))
     }
+    function preprocessBotOutput(text) {
+        return text.replace(/```html([\s\S]*?)```/g, (_, html) => html.trim());
+    }
 
     if (!sessionToken) {
         return (
@@ -200,7 +206,12 @@ function App() {
                                         className={`message-row ${msg.sender}`}
                                     >
                                         <div className={`message ${msg.sender}`}>
-                                            <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                                            >
+                                                {preprocessBotOutput(msg.text)}
+                                            </ReactMarkdown>
                                         </div>
                                     </div>
                                 ))}
