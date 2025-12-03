@@ -7,6 +7,7 @@ import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
 
 function App() {
+    const [chatEndpoint, setChatEndpoint] = useState(sessionStorage.getItem('session_chat_endpoint') || '')
     const [messages, setMessages] = useState([])
     const [input, setInput] = useState('')
     const [loading, setLoading] = useState(false)
@@ -36,7 +37,7 @@ function App() {
         setLoading(true)
 
         try {
-            const response = await fetch('https://russie.app.n8n.cloud/webhook/e0e19d7a-c571-4cbd-928e-35875bc0a39d', {
+            const response = await fetch(chatEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: input, email : sessionStorage.getItem('session_email')}).toLowerCase()
@@ -69,7 +70,7 @@ function App() {
         if (!email.trim()) return
         setAuthLoading(true)
         try {
-            const res = await fetch('https://russie.app.n8n.cloud/webhook/261d0fb7-1815-4653-890e-9bd672d0a184', {
+            const res = await fetch('https://russie.app.n8n.cloud/webhook/6ff64cc3-e694-4ee8-9c8e-71d7f3270f21', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email }).toLowerCase()
@@ -92,7 +93,7 @@ function App() {
         if (!otp.trim()) return
         setAuthLoading(true)
         try {
-            const res = await fetch('https://russie.app.n8n.cloud/webhook/2736337a-44c8-4c00-8c1f-15a1011003d2', {
+            const res = await fetch('https://russie.app.n8n.cloud/webhook/e5f558c3-4f20-4ff5-9d17-69d431ac0ebf', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp })
@@ -100,9 +101,11 @@ function App() {
             const data = await res.json()
             if (data.success) {
                 setSessionToken(data.token)
+                setChatEndpoint(data.chat_endpoint)
 
                 sessionStorage.setItem('session_token', data.token)
                 sessionStorage.setItem('session_email', data.email.toLowerCase())
+                sessionStorage.setItem('session_chat_endpoint', data.chat_endpoint)
             } else {
                 alert(data.message || 'Invalid OTP')
             }
@@ -115,8 +118,10 @@ function App() {
 
     const logout = () => {
         sessionStorage.removeItem('session_token')
+        sessionStorage.removeItem('session_chat_endpoint')
         setSessionToken(null)
         setOtpSent(false)
+        setChatEndpoint('')
         setEmail('')
         setOtp('')
         setMessages(([]))
