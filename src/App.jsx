@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
-import {Send, MessageCircle, Bot, Paperclip} from 'lucide-react'
+import {Send, MessageCircle, Bot, Paperclip, User, MoveUp} from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
@@ -17,7 +17,15 @@ function App() {
     const [otp, setOtp] = useState('')
     const [otpSent, setOtpSent] = useState(false)
     const [authLoading, setAuthLoading] = useState(false)
+    const pollRef = useRef(null);
+    const timeoutRef = useRef(null);
 
+    useEffect(() => {
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, []);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -36,20 +44,96 @@ function App() {
         setInput('')
         setLoading(true)
 
+        // Add placeholder bot message with stage info
+        const botMessageId = Date.now() + 1
+        const placeholderMessage = {
+            id: botMessageId,
+            text: 'Thinking…',
+            sender: 'bot',
+            stage: 'understanding'
+        }
+        setMessages(prev => [...prev, placeholderMessage])
+
         try {
-            const response = await fetch(chatEndpoint, {
+            // Step 1: Start the job
+            const startResponse = await fetch(chatEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: input, email : sessionStorage.getItem('session_email')}).toLowerCase()
+                body: JSON.stringify({
+                    message: input,
+                    email: sessionStorage.getItem('session_email')
+                })
             })
 
-            const data = await response.json()
-            const botMessage = {
-                id: Date.now() + 1,
-                text: data.output || 'No response',
-                sender: 'bot'
+            const { jobId } = await startResponse.json()
+
+            if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
             }
-            setMessages(prev => [...prev, botMessage])
+
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+
+
+            // Step 2: Poll for status
+            pollRef.current = setInterval(async () => {
+                try {
+                    const statusResponse = await fetch(
+                        `${chatEndpoint.replace('chat-start', 'chat-status')}?jobId=${jobId}`
+                    );
+
+                    const statusData = await statusResponse.json();
+
+                    // Update progress
+                    if (statusData.message) {
+                        setMessages(prev =>
+                            prev.map(msg =>
+                                msg.id === botMessageId
+                                    ? { ...msg, text: statusData.message }
+                                    : msg
+                            )
+                        );
+                    }
+
+                    // ✅ STOP polling when done
+                    if (statusData.status === 'done') {
+                        clearInterval(pollRef.current);
+                        pollRef.current = null;
+
+                        if (timeoutRef.current) {
+                            clearTimeout(timeoutRef.current);
+                            timeoutRef.current = null;
+                        }
+
+                        setMessages(prev =>
+                            prev.map(msg =>
+                                msg.id === botMessageId
+                                    ? { ...msg, text: statusData.final || 'No response' }
+                                    : msg
+                            )
+                        );
+
+                        setLoading(false);
+                    }
+                } catch (err) {
+                    console.error('Polling error:', err);
+                }
+            }, 5000);
+
+
+            // Safety timeout after 5 minutes
+            timeoutRef.current = setTimeout(() => {
+                if (pollRef.current) {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+                }
+                setLoading(false);
+            }, 300000);
+
+
         } catch (error) {
             const errorMessage = {
                 id: Date.now() + 1,
@@ -57,7 +141,6 @@ function App() {
                 sender: 'bot'
             }
             setMessages(prev => [...prev, errorMessage])
-        } finally {
             setLoading(false)
         }
     }
@@ -117,6 +200,14 @@ function App() {
     }
 
     const logout = () => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
         sessionStorage.removeItem('session_token')
         sessionStorage.removeItem('session_chat_endpoint')
         setSessionToken(null)
@@ -133,46 +224,46 @@ function App() {
     if (!sessionToken) {
         return (
             <div className={'login-screen'}>
-            <div className="login-container">
-                <h2>Seeker Login</h2>
-                {!otpSent ? (
-                    <>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && checkEmailAndSendOtp()}
-                            placeholder="Enter your email"
-                            disabled={authLoading}
-                        />
+                <div className="login-container">
+                    <h2>Seeker Login</h2>
+                    {!otpSent ? (
+                        <>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                onKeyPress={e => e.key === 'Enter' && checkEmailAndSendOtp()}
+                                placeholder="Enter your email"
+                                disabled={authLoading}
+                            />
 
-                        <button
-                            onClick={checkEmailAndSendOtp}
-                            disabled={authLoading || !email.trim()}
-                        >
-                            {authLoading ? 'Checking...' : 'Next'}
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <input
-                            type="text"
-                            value={otp}
-                            onChange={e => setOtp(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && verifyOtp()}
-                            placeholder="Enter OTP"
-                            disabled={authLoading}
-                        />
-                        <button
-                            onClick={verifyOtp}
-                            disabled={authLoading || !otp.trim()}
-                        >
-                            {authLoading ? 'Verifying...' : 'Verify OTP'}
-                        </button>
-                        <button onClick={() => setOtpSent(false)}>Change Email</button>
-                    </>
-                )}
-            </div>
+                            <button
+                                onClick={checkEmailAndSendOtp}
+                                disabled={authLoading || !email.trim()}
+                            >
+                                {authLoading ? 'Checking...' : 'Next'}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <input
+                                type="text"
+                                value={otp}
+                                onChange={e => setOtp(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && verifyOtp()}
+                                placeholder="Enter OTP"
+                                disabled={authLoading}
+                            />
+                            <button
+                                onClick={verifyOtp}
+                                disabled={authLoading || !otp.trim()}
+                            >
+                                {authLoading ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                            <button onClick={() => setOtpSent(false)}>Change Email</button>
+                        </>
+                    )}
+                </div>
             </div>
 
         )
@@ -181,91 +272,166 @@ function App() {
         return (
             <>
 
-            <div className="chat-container">
-                <img src="https://raw.githubusercontent.com/MysticMelo/seeker/refs/heads/master/public/Seek19.png" alt="Logo" className="logo" width={"15%"} height={"auto"}
-                     draggable={false}/>
-                <div className="chat-wrapper">
-
+                <div className="chat-main-container">
                     {/* Header */}
-                    <div className="chat-header">
-                        {/*<img src="../public/Seek19%20Logo.png" alt="Logo" className="logo"/>*/}
-                        <div className="header-content">
-                            <Bot size={24} className="header-icon"/>
-                            <h1>Seeker</h1>
-                        </div>
-                        <button className={'logout-btn'} onClick={logout}>Logout</button>
-                    </div>
-
-                    {/* Messages */}
-                    <div className="chat-messages">
-                        {messages.length === 0 ? (
-                            <div className="empty-state">
-                                <Bot size={48} className="empty-icon"/>
-                                <p>Start a conversation</p>
+                    <header className="chat-header-sticky">
+                        <div className="chat-header-content">
+                            <div className="chat-header-left">
+                                <img
+                                    src="https://raw.githubusercontent.com/MysticMelo/seeker/refs/heads/master/public/Seek19.png"
+                                    alt="Seeker Logo"
+                                    className="chat-logo"
+                                    draggable={false}
+                                />
+                                <h1 className="chat-title">Seeker</h1>
                             </div>
-                        ) : (
-                            <>
-                                {messages.map(msg => (
-                                    <div
-                                        key={msg.id}
-                                        className={`message-row ${msg.sender}`}
-                                    >
-                                        <div className={`message ${msg.sender}`}>
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                                rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                                            >
-                                                {preprocessBotOutput(msg.text)}
-                                            </ReactMarkdown>
-                                        </div>
+                            <button className="logout-button" onClick={logout}>
+                                Logout
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="chat-main-content">
+                        <div className="chat-content-wrapper">
+                            {messages.length === 0 ? (
+                                <div className="empty-state-container">
+                                    <div className="empty-state-logo-wrapper">
+                                        <div className="empty-state-logo-glow"></div>
+                                        <img
+                                            src="https://raw.githubusercontent.com/MysticMelo/seeker/refs/heads/master/public/Seek19.png"
+                                            alt="Seeker"
+                                            className="empty-state-logo"
+                                            draggable={false}
+                                        />
                                     </div>
-                                ))}
-                                {loading && (
-                                    <div className="message-row bot">
-                                        <div className="message bot loading">
-                                            <div className="typing-indicator">
-                                                <span></span>
-                                                <span></span>
-                                                <span></span>
+                                    <h2 className="empty-state-title">
+                                        What can I help you with?
+                                    </h2>
+                                    {/*<p className="empty-state-subtitle">*/}
+                                    {/*    Ask me anything or try one of these prompts*/}
+                                    {/*</p>*/}
+
+                                    {/* Suggested Prompts */}
+                                    {/*<div className="suggested-prompts-grid">*/}
+                                    {/*    {suggestedPrompts.map((prompt, idx) => (*/}
+                                    {/*        <button*/}
+                                    {/*            key={idx}*/}
+                                    {/*            onClick={() => setInput(prompt)}*/}
+                                    {/*            className="prompt-button"*/}
+                                    {/*        >*/}
+                                    {/*            <Sparkles className="prompt-icon" />*/}
+                                    {/*            <span className="prompt-text">{prompt}</span>*/}
+                                    {/*        </button>*/}
+                                    {/*    ))}*/}
+                                    {/*</div>*/}
+                                </div>
+                            ) : (
+                                <div className="messages-container">
+                                    {messages.map(msg => (
+                                        <div
+                                            key={msg.id}
+                                            className={`message-row ${msg.sender === 'user' ? 'message-row-user' : 'message-row-bot'}`}
+                                        >
+                                            {msg.sender === 'bot' && (
+                                                <div className="message-avatar avatar-bot">
+                                                    <Bot style={{ width: '20px', height: '20px', color: 'white' }} />
+                                                </div>
+                                            )}
+                                            <div className={`message-bubble ${msg.sender === 'user' ? 'message-bubble-user' : 'message-bubble-bot'}`}>
+                                                {msg.sender === 'user' ? (
+                                                    <p className="message-text">{msg.text}</p>
+                                                ) : (
+                                                    <ReactMarkdown
+                                                        remarkPlugins={[remarkGfm]}
+                                                        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                                                    >
+                                                        {preprocessBotOutput(msg.text)}
+                                                    </ReactMarkdown>
+                                                )}
+                                            </div>
+                                            {msg.sender === 'user' && (
+                                                <div className="message-avatar avatar-user">
+                                                    <User style={{ width: '20px', height: '20px', color: 'white' }} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    {loading && (
+                                        <div className="message-row message-row-bot">
+                                            <div className="message-avatar avatar-bot">
+                                                <Bot style={{ width: '20px', height: '20px', color: 'white' }} />
+                                            </div>
+                                            <div className="message-bubble message-bubble-bot">
+                                                <div className="typing-dots">
+                                                    <span className="typing-dot"></span>
+                                                    <span className="typing-dot"></span>
+                                                    <span className="typing-dot"></span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                                <div ref={messagesEndRef}/>
-                            </>
-                        )}
-                    </div>
+                                    )}
+                                    <div ref={messagesEndRef} />
+                                </div>
+                            )}
+                        </div>
+                    </main>
 
-                    {/* Input */}
-                    <div className="chat-input-section">
-                        <div className="input-wrapper">
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={e => setInput(e.target.value)}
-                                onKeyPress={e => e.key === 'Enter' && handleSend()}
-                                placeholder="Type a message..."
-                                disabled={loading}
-                                className="input-field"
-                            />
-                            {/*<button*/}
-                            {/*    onClick={handleAttach}*/}
+                    {/* Floating Input */}
+                    <div className="floating-input-container">
+                        <div className="floating-input-wrapper">
+                            <div className="input-glow-wrapper">
+                                <div className="input-glow"></div>
+                                <div className="input-box">
+                <textarea
+                    value={input}
+                    onChange={e => {
+                        setInput(e.target.value);
 
-                            {/*    className="send-button"*/}
-                            {/*>*/}
-                            {/*    <Paperclip size={20}/>*/}
-                            {/*</button>*/}
-                            <button
-                                onClick={handleSend}
-                                disabled={loading || !input.trim()}
-                                className="send-button"
-                            >
-                                <Send size={20}/>
-                            </button>
+                        const el = e.target;
+
+                        // Reset height
+                        el.style.height = "auto";
+
+                        // Apply natural height
+                        const newHeight = el.scrollHeight;
+
+                        // If within limit → grow without scroll
+                        if (newHeight <= 200) {
+                            el.style.height = newHeight + "px";
+                            el.style.overflowY = "hidden";
+                        }
+                        else {
+                            // Cap height and enable scroll
+                            el.style.height = "200px";
+                            el.style.overflowY = "auto";
+                        }
+                    }}
+                    onKeyPress={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSend();
+                        }
+                    }}
+                    placeholder="Ask Seeker anything..."
+                    disabled={loading}
+                    rows={1}
+                    className="chat-textarea"
+                />
+                                    <button
+                                        onClick={handleSend}
+                                        disabled={loading || !input.trim()}
+                                        className="send-button"
+                                    >
+                                        <MoveUp style={{ width: '20px', height: '20px', color: 'black' }} />
+                                    </button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
-            </div>
             </>
         )
     }
