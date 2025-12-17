@@ -17,7 +17,15 @@ function App() {
     const [otp, setOtp] = useState('')
     const [otpSent, setOtpSent] = useState(false)
     const [authLoading, setAuthLoading] = useState(false)
+    const pollRef = useRef(null);
+    const timeoutRef = useRef(null);
 
+    useEffect(() => {
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, []);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -36,20 +44,96 @@ function App() {
         setInput('')
         setLoading(true)
 
+        // Add placeholder bot message with stage info
+        const botMessageId = Date.now() + 1
+        const placeholderMessage = {
+            id: botMessageId,
+            text: 'Thinking…',
+            sender: 'bot',
+            stage: 'understanding'
+        }
+        setMessages(prev => [...prev, placeholderMessage])
+
         try {
-            const response = await fetch(chatEndpoint, {
+            // Step 1: Start the job
+            const startResponse = await fetch(chatEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: input, email : sessionStorage.getItem('session_email')}).toLowerCase()
+                body: JSON.stringify({
+                    message: input,
+                    email: sessionStorage.getItem('session_email')
+                })
             })
 
-            const data = await response.json()
-            const botMessage = {
-                id: Date.now() + 1,
-                text: data.output || 'No response',
-                sender: 'bot'
+            const { jobId } = await startResponse.json()
+
+            if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
             }
-            setMessages(prev => [...prev, botMessage])
+
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+
+
+            // Step 2: Poll for status
+            pollRef.current = setInterval(async () => {
+                try {
+                    const statusResponse = await fetch(
+                        `${chatEndpoint.replace('chat-start', 'chat-status')}?jobId=${jobId}`
+                    );
+
+                    const statusData = await statusResponse.json();
+
+                    // Update progress
+                    if (statusData.message) {
+                        setMessages(prev =>
+                            prev.map(msg =>
+                                msg.id === botMessageId
+                                    ? { ...msg, text: statusData.message }
+                                    : msg
+                            )
+                        );
+                    }
+
+                    // ✅ STOP polling when done
+                    if (statusData.status === 'done') {
+                        clearInterval(pollRef.current);
+                        pollRef.current = null;
+
+                        if (timeoutRef.current) {
+                            clearTimeout(timeoutRef.current);
+                            timeoutRef.current = null;
+                        }
+
+                        setMessages(prev =>
+                            prev.map(msg =>
+                                msg.id === botMessageId
+                                    ? { ...msg, text: statusData.final || 'No response' }
+                                    : msg
+                            )
+                        );
+
+                        setLoading(false);
+                    }
+                } catch (err) {
+                    console.error('Polling error:', err);
+                }
+            }, 5000);
+
+
+            // Safety timeout after 5 minutes
+            timeoutRef.current = setTimeout(() => {
+                if (pollRef.current) {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+                }
+                setLoading(false);
+            }, 300000);
+
+
         } catch (error) {
             const errorMessage = {
                 id: Date.now() + 1,
@@ -57,7 +141,6 @@ function App() {
                 sender: 'bot'
             }
             setMessages(prev => [...prev, errorMessage])
-        } finally {
             setLoading(false)
         }
     }
@@ -117,6 +200,14 @@ function App() {
     }
 
     const logout = () => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
         sessionStorage.removeItem('session_token')
         sessionStorage.removeItem('session_chat_endpoint')
         setSessionToken(null)
@@ -133,46 +224,46 @@ function App() {
     if (!sessionToken) {
         return (
             <div className={'login-screen'}>
-            <div className="login-container">
-                <h2>Seeker Login</h2>
-                {!otpSent ? (
-                    <>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && checkEmailAndSendOtp()}
-                            placeholder="Enter your email"
-                            disabled={authLoading}
-                        />
+                <div className="login-container">
+                    <h2>Seeker Login</h2>
+                    {!otpSent ? (
+                        <>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                onKeyPress={e => e.key === 'Enter' && checkEmailAndSendOtp()}
+                                placeholder="Enter your email"
+                                disabled={authLoading}
+                            />
 
-                        <button
-                            onClick={checkEmailAndSendOtp}
-                            disabled={authLoading || !email.trim()}
-                        >
-                            {authLoading ? 'Checking...' : 'Next'}
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <input
-                            type="text"
-                            value={otp}
-                            onChange={e => setOtp(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && verifyOtp()}
-                            placeholder="Enter OTP"
-                            disabled={authLoading}
-                        />
-                        <button
-                            onClick={verifyOtp}
-                            disabled={authLoading || !otp.trim()}
-                        >
-                            {authLoading ? 'Verifying...' : 'Verify OTP'}
-                        </button>
-                        <button onClick={() => setOtpSent(false)}>Change Email</button>
-                    </>
-                )}
-            </div>
+                            <button
+                                onClick={checkEmailAndSendOtp}
+                                disabled={authLoading || !email.trim()}
+                            >
+                                {authLoading ? 'Checking...' : 'Next'}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <input
+                                type="text"
+                                value={otp}
+                                onChange={e => setOtp(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && verifyOtp()}
+                                placeholder="Enter OTP"
+                                disabled={authLoading}
+                            />
+                            <button
+                                onClick={verifyOtp}
+                                disabled={authLoading || !otp.trim()}
+                            >
+                                {authLoading ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                            <button onClick={() => setOtpSent(false)}>Change Email</button>
+                        </>
+                    )}
+                </div>
             </div>
 
         )
@@ -244,7 +335,7 @@ function App() {
                                         >
                                             {msg.sender === 'bot' && (
                                                 <div className="message-avatar avatar-bot">
-                                                    <Bot style={{ width: '20px', height: '20px', color: 'black' }} />
+                                                    <Bot style={{ width: '20px', height: '20px', color: 'white' }} />
                                                 </div>
                                             )}
                                             <div className={`message-bubble ${msg.sender === 'user' ? 'message-bubble-user' : 'message-bubble-bot'}`}>
