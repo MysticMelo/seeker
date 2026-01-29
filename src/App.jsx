@@ -1,10 +1,76 @@
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import './App.css'
 import {Send, MessageCircle, Bot, Paperclip, User, MoveUp} from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
+
+const TypingIndicator = React.memo(function TypingIndicator() {
+    return (
+        <div className="message-row message-row-bot">
+            <div className="message-avatar avatar-bot">
+                <Bot style={{ width: '20px', height: '20px', color: 'white' }} />
+            </div>
+            <div className="message-bubble message-bubble-bot">
+                <div className="typing-dots">
+                    <span className="typing-dot"></span>
+                    <span className="typing-dot"></span>
+                    <span className="typing-dot"></span>
+                </div>
+            </div>
+        </div>
+    );
+});
+
+const Message = React.memo(function Message({ msg }) {
+    return (
+        <div className={`message-row ${msg.sender === 'user' ? 'message-row-user' : 'message-row-bot'}`}>
+            {msg.sender === 'bot' && <BotAvatar />}
+
+            <div className={`message-bubble ${msg.sender === 'user' ? 'message-bubble-user' : 'message-bubble-bot'}`}>
+                {msg.sender === 'user' ? (
+                    <p>{msg.text}</p>
+                ) : (
+                    <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                    >
+                        {msg.text}
+                    </ReactMarkdown>
+                )}
+            </div>
+
+            {msg.sender === 'user' && <UserAvatar />}
+        </div>
+    );
+});
+const BotAvatar = React.memo(function BotAvatar() {
+    return (
+        <div className="message-avatar avatar-bot">
+            <Bot style={{ width: '20px', height: '20px', color: 'white' }} />
+        </div>
+    );
+});
+const UserAvatar = React.memo(function UserAvatar() {
+    return (
+        <div className="message-avatar avatar-user">
+            <User style={{ width: '20px', height: '20px', color: 'white' }} />
+        </div>
+    );
+});
+const MessagesList = React.memo(function MessagesList({ messages, loading, endRef }) {
+    return (
+        <div className="messages-container">
+            {messages.map(msg => (
+                <Message key={msg.id} msg={msg} />
+            ))}
+
+            {loading && <TypingIndicator />}
+            <div ref={endRef} />
+        </div>
+    );
+});
 
 function App() {
     const [chatEndpoint, setChatEndpoint] = useState(sessionStorage.getItem('session_chat_endpoint') || '')
@@ -27,13 +93,22 @@ function App() {
         };
     }, []);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+    // const scrollToBottom = () => {
+    //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // }
+    const prevMessageCountRef = useRef(0);
 
     useEffect(() => {
-        scrollToBottom()
-    }, [messages])
+        const prevCount = prevMessageCountRef.current;
+        const currentCount = messages.length;
+
+        // Only scroll when a NEW message is added
+        if (currentCount > prevCount) {
+            messagesEndRef.current?.scrollIntoView();
+        }
+
+        prevMessageCountRef.current = currentCount;
+    }, [messages.length]);
 
     const handleSend = async () => {
         if (!input.trim()) return
@@ -121,7 +196,7 @@ function App() {
                 } catch (err) {
                     console.error('Polling error:', err);
                 }
-            }, 5000);
+            }, 3000);
 
 
             // Safety timeout after 5 minutes
@@ -217,9 +292,14 @@ function App() {
         setOtp('')
         setMessages(([]))
     }
+
+
+
     function preprocessBotOutput(text) {
         return text.replace(/```html([\s\S]*?)```/g, (_, html) => html.trim());
     }
+
+
 
     if (!sessionToken) {
         return (
@@ -327,54 +407,9 @@ function App() {
                                     {/*</div>*/}
                                 </div>
                             ) : (
-                                <div className="messages-container">
-                                    {messages.map(msg => (
-                                        <div
-                                            key={msg.id}
-                                            className={`message-row ${msg.sender === 'user' ? 'message-row-user' : 'message-row-bot'}`}
-                                        >
-                                            {msg.sender === 'bot' && (
-                                                <div className="message-avatar avatar-bot">
-                                                    <Bot style={{ width: '20px', height: '20px', color: 'white' }} />
-                                                </div>
-                                            )}
-                                            <div className={`message-bubble ${msg.sender === 'user' ? 'message-bubble-user' : 'message-bubble-bot'}`}>
-                                                {msg.sender === 'user' ? (
-                                                    <p className="message-text">{msg.text}</p>
-                                                ) : (
-                                                    <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm]}
-                                                        rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                                                    >
-                                                        {preprocessBotOutput(msg.text)}
-                                                    </ReactMarkdown>
-                                                )}
-                                            </div>
-                                            {msg.sender === 'user' && (
-                                                <div className="message-avatar avatar-user">
-                                                    <User style={{ width: '20px', height: '20px', color: 'white' }} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                <MessagesList messages={messages} loading={loading} endRef={messagesEndRef} />
 
-                                    {loading && (
-                                        <div className="message-row message-row-bot">
-                                            <div className="message-avatar avatar-bot">
-                                                <Bot style={{ width: '20px', height: '20px', color: 'white' }} />
-                                            </div>
-                                            <div className="message-bubble message-bubble-bot">
-                                                <div className="typing-dots">
-                                                    <span className="typing-dot"></span>
-                                                    <span className="typing-dot"></span>
-                                                    <span className="typing-dot"></span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div ref={messagesEndRef} />
-                                </div>
-                            )}
+                        )}
                         </div>
                     </main>
 

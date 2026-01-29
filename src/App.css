@@ -220,6 +220,9 @@ body {
 .message-row-user {
     justify-content: flex-end;
 }
+.message-row-user p {
+    margin: 0;
+}
 
 .message-row-bot {
     justify-content: flex-start;
@@ -442,7 +445,7 @@ body {
 
 .send-button {
     flex-shrink: 0;
-    padding: 12px;
+    padding: 9px 13px;
     border-radius: 16px;
     background: linear-gradient(135deg, #00b5a4 0%, #00998a 100%);
     border: none;
