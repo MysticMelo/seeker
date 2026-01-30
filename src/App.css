@@ -349,7 +349,36 @@ body {
     text-align: right;
 }
 
+/* Chart Styles */
+.chart-container {
+    margin: 16px 0;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
 
+.chart-title {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #f3f4f6;
+    text-align: center;
+}
+
+.chart-error {
+    padding: 12px 16px;
+    background: rgba(255, 115, 0, 0.1);
+    border: 1px solid rgba(255, 115, 0, 0.3);
+    border-radius: 8px;
+    margin: 12px 0;
+}
+
+.chart-error p {
+    margin: 0;
+    color: #ffa940;
+    font-size: 14px;
+}
 
 .typing-dots {
     display: flex;

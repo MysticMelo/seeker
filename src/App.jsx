@@ -5,6 +5,108 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+
+// Chart colors matching the app theme
+const CHART_COLORS = ['#00b5a4', '#00998a', '#ff7300', '#ffa940', '#6b7280', '#9ca3af'];
+
+const ChartDisplay = React.memo(function ChartDisplay({ chartConfig }) {
+    // Handle error state
+    if (chartConfig?.error) {
+        return (
+            <div className="chart-error">
+                <p>Unable to generate chart: {chartConfig.error}</p>
+            </div>
+        );
+    }
+
+    // Validate chart config
+    if (!chartConfig || !chartConfig.data || !Array.isArray(chartConfig.data) || chartConfig.data.length === 0) {
+        return null;
+    }
+
+    const { type, title, xKey, yKeys, yLabels, data } = chartConfig;
+
+    // Default to yKeys if yLabels not provided
+    const labels = yLabels || yKeys;
+
+    return (
+        <div className="chart-container">
+            {title && <h3 className="chart-title">{title}</h3>}
+            <ResponsiveContainer width="100%" height={300}>
+                {type === 'bar' ? (
+                    <BarChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                        <XAxis 
+                            dataKey={xKey} 
+                            stroke="#9ca3af"
+                            style={{ fontSize: '12px' }}
+                        />
+                        <YAxis 
+                            stroke="#9ca3af"
+                            style={{ fontSize: '12px' }}
+                        />
+                        <Tooltip 
+                            contentStyle={{ 
+                                backgroundColor: 'rgba(2, 14, 28, 0.95)', 
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '8px',
+                                color: '#f3f4f6'
+                            }}
+                        />
+                        <Legend 
+                            wrapperStyle={{ color: '#f3f4f6', fontSize: '12px' }}
+                        />
+                        {yKeys.map((key, index) => (
+                            <Bar 
+                                key={key}
+                                dataKey={key} 
+                                name={labels[index] || key}
+                                fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            />
+                        ))}
+                    </BarChart>
+                ) : (
+                    <LineChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                        <XAxis 
+                            dataKey={xKey} 
+                            stroke="#9ca3af"
+                            style={{ fontSize: '12px' }}
+                        />
+                        <YAxis 
+                            stroke="#9ca3af"
+                            style={{ fontSize: '12px' }}
+                        />
+                        <Tooltip 
+                            contentStyle={{ 
+                                backgroundColor: 'rgba(2, 14, 28, 0.95)', 
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '8px',
+                                color: '#f3f4f6'
+                            }}
+                        />
+                        <Legend 
+                            wrapperStyle={{ color: '#f3f4f6', fontSize: '12px' }}
+                        />
+                        {yKeys.map((key, index) => (
+                            <Line 
+                                key={key}
+                                type="monotone"
+                                dataKey={key} 
+                                name={labels[index] || key}
+                                stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                                strokeWidth={2}
+                                dot={{ fill: CHART_COLORS[index % CHART_COLORS.length], r: 4 }}
+                                activeDot={{ r: 6 }}
+                            />
+                        ))}
+                    </LineChart>
+                )}
+            </ResponsiveContainer>
+        </div>
+    );
+});
 
 const TypingIndicator = React.memo(function TypingIndicator() {
     return (
@@ -32,12 +134,15 @@ const Message = React.memo(function Message({ msg }) {
                 {msg.sender === 'user' ? (
                     <p>{msg.text}</p>
                 ) : (
-                    <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                    >
-                        {msg.text}
-                    </ReactMarkdown>
+                    <>
+                        {msg.chart && <ChartDisplay chartConfig={msg.chart} />}
+                        <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                        >
+                            {msg.text}
+                        </ReactMarkdown>
+                    </>
                 )}
             </div>
 
@@ -186,7 +291,11 @@ function App() {
                         setMessages(prev =>
                             prev.map(msg =>
                                 msg.id === botMessageId
-                                    ? { ...msg, text: statusData.final || 'No response' }
+                                    ? { 
+                                        ...msg, 
+                                        text: statusData.final || 'No response',
+                                        chart: statusData.chart || null
+                                    }
                                     : msg
                             )
                         );
