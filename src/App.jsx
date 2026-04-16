@@ -8,7 +8,7 @@ import rehypeSanitize from "rehype-sanitize"
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 // Chart colors matching the app theme
-const CHART_COLORS = ['#00b5a4', '#00998a', '#ff7300', '#ffa940', '#6b7280', '#9ca3af'];
+const CHART_COLORS = ['#00b5a4', '#167101', '#ff7300', '#ffa940', '#6b7280', '#9ca3af'];
 
 const ChartDisplay = React.memo(function ChartDisplay({ chartConfig }) {
     // Handle error state
@@ -190,6 +190,7 @@ function App() {
     const [authLoading, setAuthLoading] = useState(false)
     const pollRef = useRef(null);
     const timeoutRef = useRef(null);
+    const textareaRef = useRef(null);
 
     useEffect(() => {
         return () => {
@@ -222,6 +223,9 @@ function App() {
         const userMessage = { id: Date.now(), text: input, sender: 'user' }
         setMessages(prev => [...prev, userMessage])
         setInput('')
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto'
+        }
         setLoading(true)
 
         // Add placeholder bot message with stage info
@@ -529,6 +533,7 @@ function App() {
                                 <div className="input-glow"></div>
                                 <div className="input-box">
                 <textarea
+                    ref={textareaRef}
                     value={input}
                     onChange={e => {
                         setInput(e.target.value);
